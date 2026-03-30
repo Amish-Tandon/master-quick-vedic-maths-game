@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master Quick - Math PWA</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#6C63FF">
+
+    <style>
+        /* --- Dynamic Theme Variables --- */
+        :root {
+            --primary: #6C63FF; --secondary: #4CAF50; --danger: #FF5252;
+            --ai-color: #00d2d3; --share-color: #25D366;
+            --bg-color: #e2e8f0; --container-bg: #ffffff; --text-color: #2D3436;
+            --option-bg: #f8f9fa; --option-border: #e9ecef; --option-hover: #e2e6ea; --input-border: #ddd;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #0a0a0a; --container-bg: #1e1e1e; --text-color: #f1f2f6;
+            --option-bg: #2d3436; --option-border: #4a4a4a; --option-hover: #3d3d3d; --input-border: #4a4a4a;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color); margin: 0; display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; color: var(--text-color); overflow: hidden; position: relative;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .app-container {
+            width: 100%; max-width: 400px; background: var(--container-bg); border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2); overflow: hidden; position: relative;
+            min-height: 700px; display: flex; flex-direction: column; z-index: 10; transition: background-color 0.3s;
+        }
+
+        #bg-animation { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; overflow: hidden; }
+        .math-symbol { position: absolute; color: var(--primary); opacity: 0.15; font-family: monospace; font-weight: bold; bottom: -50px; animation: floatUp linear infinite; }
+        @keyframes floatUp { 0% { transform: translateY(0) rotate(0deg); opacity: 0; } 10% { opacity: 0.3; } 90% { opacity: 0.3; } 100% { transform: translateY(-800px) rotate(360deg); opacity: 0; } }
+
+        .top-bar { background: var(--primary); color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; font-weight: bold; position: relative; z-index: 10; }
+        .theme-btn { background: none; border: none; font-size: 20px; cursor: pointer; padding: 0; margin-right: 10px; }
+        .gem-display { display: flex; align-items: center; gap: 5px; background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 15px; font-size: 14px; }
+
+        .screen { padding: 20px; display: none; flex-direction: column; height: 100%; flex-grow: 1; position: relative; z-index: 10; }
+        .screen.active { display: flex; }
+        h1, h2 { text-align: center; margin-bottom: 20px; }
+
+        .btn { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 10px; font-size: 16px; cursor: pointer; margin-bottom: 10px; transition: 0.2s; width: 100%; font-weight: bold; }
+        .btn:active { transform: scale(0.98); }
+        .btn-outline { background: transparent; border: 2px solid var(--primary); color: var(--primary); }
+        .btn-danger { background: var(--danger); }
+        .btn-ai { background: var(--ai-color); color: #000; box-shadow: 0 4px 15px rgba(0, 210, 211, 0.4); }
+        .btn-share { background: var(--share-color); }
+        .btn-gold { background: #FFD700; color: #000; }
+        .btn-install { background: #2D3436; color: white; border: 2px solid #FFD700; }
+
+        select { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 2px solid var(--input-border); font-size: 16px; background: var(--container-bg); color: var(--text-color); }
+
+        .header-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .timer-wrapper { display: flex; align-items: center; gap: 10px; flex-grow: 1; }
+        .timer-text { font-weight: bold; color: var(--primary); min-width: 40px; }
+        .timer-bar { flex-grow: 1; height: 8px; background: var(--option-border); border-radius: 4px; overflow: hidden; }
+        .timer-fill { height: 100%; background: var(--secondary); width: 100%; transition: width 1s linear; }
+        .timer-fill.low { background: var(--danger); }
+        .btn-pause { padding: 8px 12px; width: auto; margin: 0; font-size: 14px; }
+        .question-box { font-size: 28px; text-align: center; margin: 10px 0 20px 0; font-weight: bold; color: var(--primary); min-height: 80px; display: flex; align-items: center; justify-content: center; }
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 5px; }
+        .option-btn { background: var(--option-bg); border: 2px solid var(--option-border); color: var(--text-color); padding: 20px; border-radius: 12px; font-size: 20px; cursor: pointer; transition: 0.3s; font-weight: bold; }
+        .option-btn:hover { background: var(--option-hover); }
+        .option-btn.correct { background: var(--secondary); color: white; border-color: var(--secondary); }
+        .option-btn.wrong { background: var(--danger); color: white; border-color: var(--danger); }
+        .option-btn.hidden { visibility: hidden; }
+        
+        .lifelines { display: flex; gap: 10px; margin-top: 20px; margin-bottom: 20px; }
+        .lifeline-btn { flex: 1; padding: 10px; background: #FF9F43; color: white; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; display: flex; flex-direction: column; align-items: center; font-weight: bold; }
+        .lifeline-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .cost { font-size: 10px; opacity: 0.9; font-weight: normal; }
+
+        .creator-text { text-align: center; font-size: 12px; font-weight: bold; margin-top: auto; padding-top: 20px; opacity: 0.6; text-transform: uppercase; letter-spacing: 1px; }
+
+        .overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 100; padding: 20px; box-sizing: border-box; }
+        .modal-content { background: var(--container-bg); padding: 25px; border-radius: 15px; text-align: center; width: 100%; max-width: 320px; animation: popIn 0.3s ease; box-shadow: 0 10px 30px rgba(0,0,0,0.5); color: var(--text-color); }
+        .ai-bubble { background: var(--option-bg); border-left: 5px solid var(--ai-color); padding: 15px; margin: 15px 0; border-radius: 0 10px 10px 0; text-align: left; font-size: 16px; line-height: 1.5; }
+        .leaderboard-list { list-style: none; padding: 0; margin: 15px 0; text-align: left; }
+        .leaderboard-list li { padding: 10px; background: var(--option-bg); margin-bottom: 5px; border-radius: 8px; display: flex; justify-content: space-between; font-weight: bold; border: 1px solid var(--option-border); }
+        @keyframes popIn { from { transform: scale(0.8); } to { transform: scale(1); } }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div id="bg-animation"></div>
+
+    <div class="top-bar">
+        <div style="display:flex; align-items:center;">
+            <button id="theme-toggle" class="theme-btn" onclick="toggleTheme()">☀️</button>
+            <button id="sound-toggle" class="theme-btn" onclick="toggleSound()">🔊</button>
+            <span>Master Quick</span>
+        </div>
+        <div style="display:flex; gap:10px;">
+            <div class="gem-display">🔥 <span id="streak-display">0</span></div>
+            <div class="gem-display">💎 <span id="gem-display">5</span></div>
+        </div>
+    </div>
+
+    <div id="home-screen" class="screen active">
+        <h1 style="color: var(--primary);">Vedic Math<br>Master Quick</h1>
+        
+        <label>Select Topic:</label>
+        <select id="topic-select">
+            <option value="addition">1. Addition</option>
+            <option value="subtraction">2. Subtraction</option>
+            <option value="multiplication">3. Multiplication</option>
+            <option value="base_mult">4. Base Multiplication (Vedic)</option>
+            <option value="square">5. Square Numbers</option>
+            <option value="pythagoras">6. Pythagoras Triplets</option>
+            <option value="fractions">7. Fractions (+ / ×)</option>
+            <option value="algebra">8. Algebra (Solve for x)</option>
+        </select>
+
+        <label>Difficulty:</label>
+        <select id="difficulty-select">
+            <option value="basic">Basic</option>
+            <option value="medium">Medium</option>
+            <option value="advance">Advance</option>
+        </select>
+
+        <div style="height: 30px;"></div>
+        
+        <button id="install-btn" class="btn btn-install" style="display: none;" onclick="installPWA()">⬇️ Install App to Home Screen</button>
+        <button class="btn btn-gold" onclick="showLeaderboard()">🏆 View High Scores</button>
+        <button class="btn" onclick="startGame()">Start Game</button>
+        
+        <div class="creator-text">Made by - AMISH TANDON & OJAS AWASTHI</div>
+    </div>
+
+    <div id="game-screen" class="screen">
+        <div class="header-row">
+            <div class="timer-wrapper">
+                <div class="timer-bar"><div id="timer-fill" class="timer-fill"></div></div>
+                <div class="timer-text" id="timer-text">30s</div>
+            </div>
+            <button class="btn btn-outline btn-pause" onclick="togglePause()">⏸</button>
+        </div>
+        
+        <button class="btn btn-ai" onclick="openAIHelp()">🤖 Ask AI for Help</button>
+
+        <div id="question-text" class="question-box">Loading...</div>
+
+        <div id="options-container" class="options-grid"></div>
+
+        <div class="lifelines">
+            <button id="btn-5050" class="lifeline-btn" onclick="useLifeline('5050')">
+                <span>50-50</span>
+                <span class="cost">💎 2 Gems</span>
+            </button>
+            <button id="btn-time" class="lifeline-btn" onclick="useLifeline('time')">
+                <span>+30s Time</span>
+                <span class="cost">💎 1 Gem</span>
+            </button>
+        </div>
+    </div>
+
+    <div id="result-screen" class="screen">
+        <h2>Game Over!</h2>
+        <p>Your Score: <b id="final-score" style="font-size:32px; color: var(--primary);">0</b></p>
+        <p>Correct Answers: <span id="correct-count">0</span></p>
+        <p id="high-score-msg" style="color:var(--secondary); font-weight:bold; display:none;">🎉 New High Score! 🎉</p>
+        <div style="height: 40px;"></div>
+        <button class="btn btn-share" onclick="shareScore()">📤 Share My Score</button>
+        <button class="btn" onclick="startGame()">Play Again</button>
+        <button class="btn btn-outline" onclick="goHome()">Back to Menu</button>
+    </div>
+
+    <div id="daily-modal" class="overlay">
+        <div class="modal-content"><h2>Daily Bonus! 🎉</h2><p>Welcome back!</p><p>+1 Gem 💎</p><p>Streak Increased! 🔥</p><button class="btn" onclick="closeModal('daily-modal')">Awesome!</button></div>
+    </div>
+    <div id="ai-modal" class="overlay">
+        <div class="modal-content"><h2 style="margin-top:0;">🤖 AI Assistant</h2><p><i>(Timer is paused)</i></p><div id="ai-explanation-text" class="ai-bubble">Loading...</div><button class="btn btn-ai" onclick="closeAIHelp()">Got it! Resume</button></div>
+    </div>
+    <div id="pause-modal" class="overlay">
+        <div class="modal-content"><h2>Game Paused ⏸</h2><p>Take a deep breath!</p><button class="btn" onclick="togglePause()">▶ Resume Game</button><button class="btn btn-danger" onclick="quitGameFromPause()">Quit Game</button></div>
+    </div>
+    <div id="leaderboard-modal" class="overlay">
+        <div class="modal-content"><h2>🏆 High Scores</h2><ul class="leaderboard-list" id="leaderboard-list"></ul><button class="btn" onclick="closeModal('leaderboard-modal')">Close</button></div>
+    </div>
+</div>
+
+<script>
+    // --- PWA REGISTRATION & INSTALL LOGIC ---
+    let deferredPrompt;
+
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js').catch(err => console.log('Service Worker Failed', err));
+        });
+    }
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        document.getElementById('install-btn').style.display = 'block';
+    });
+
+    async function installPWA() {
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            if (outcome === 'accepted') { document.getElementById('install-btn').style.display = 'none'; }
+            deferredPrompt = null;
+        }
+    }
+
+    // --- MATH & AUDIO HELPERS ---
+    function gcd(a, b) { return b ? gcd(b, a % b) : Math.abs(a); }
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx;
+    function initAudio() { if (!audioCtx) audioCtx = new AudioContext(); if (audioCtx.state === 'suspended') audioCtx.resume(); }
+    function playTone(freq, type, dur) { 
+        if (!gameState.soundEnabled) return; // Mute check
+        initAudio(); const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain(); osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime); gain.gain.setValueAtTime(0.1, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur); osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + dur); 
+    }
+    function playCorrect() { playTone(600, 'sine', 0.1); setTimeout(() => playTone(800, 'sine', 0.2), 100); }
+    function playWrong() { playTone(150, 'sawtooth', 0.3); setTimeout(() => playTone(100, 'sawtooth', 0.4), 150); }
+
+    let gameState = { gems: 5, streak: 0, lastLogin: null, theme: 'light', soundEnabled: true, highScores: [], score: 0, correctCount: 0, timer: 30, maxTime: 30, intervalId: null, currentQuestion: null, currentTopic: '', currentDifficulty: '', gameActive: false, isPaused: false };
+
+    window.onload = function() { createBackgroundSymbols(); loadData(); applyTheme(); checkDailyStreak(); updateUI(); };
+
+    function createBackgroundSymbols() {
+        const container = document.getElementById('bg-animation');
+        const symbols = ['+', '-', '×', '÷', '=', '%', '√', '∞', 'π', '∑', 'x'];
+        for (let i = 0; i < 40; i++) {
+            let sym = document.createElement('div'); sym.className = 'math-symbol'; sym.innerText = symbols[Math.floor(Math.random() * symbols.length)];
+            sym.style.left = Math.random() * 100 + '%'; sym.style.fontSize = (Math.random() * 24 + 12) + 'px'; sym.style.animationDuration = (Math.random() * 10 + 8) + 's'; sym.style.animationDelay = (Math.random() * 10) + 's'; container.appendChild(sym);
+        }
+    }
+
+    function loadData() { const data = localStorage.getItem('masterQuickData'); if (data) { const parsed = JSON.parse(data); gameState.gems = parsed.gems || 5; gameState.streak = parsed.streak || 0; gameState.lastLogin = parsed.lastLogin || null; gameState.theme = parsed.theme || 'light'; gameState.soundEnabled = parsed.soundEnabled !== undefined ? parsed.soundEnabled : true; gameState.highScores = parsed.highScores || []; } }
+    function saveData() { localStorage.setItem('masterQuickData', JSON.stringify({ gems: gameState.gems, streak: gameState.streak, lastLogin: gameState.lastLogin, theme: gameState.theme, soundEnabled: gameState.soundEnabled, highScores: gameState.highScores })); updateUI(); }
+    
+    function toggleTheme() { gameState.theme = gameState.theme === 'light' ? 'dark' : 'light'; applyTheme(); saveData(); }
+    function applyTheme() { if (gameState.theme === 'dark') { document.body.setAttribute('data-theme', 'dark'); document.getElementById('theme-toggle').innerText = '🌙'; } else { document.body.removeAttribute('data-theme'); document.getElementById('theme-toggle').innerText = '☀️'; } }
+
+    function toggleSound() { gameState.soundEnabled = !gameState.soundEnabled; document.getElementById('sound-toggle').innerText = gameState.soundEnabled ? '🔊' : '🔇'; saveData(); }
+
+    function updateUI() { document.getElementById('gem-display').innerText = gameState.gems; document.getElementById('streak-display').innerText = gameState.streak; document.getElementById('sound-toggle').innerText = gameState.soundEnabled ? '🔊' : '🔇'; }
+    
+    function checkDailyStreak() {
+        const today = new Date().toDateString();
+        if (gameState.lastLogin !== today) {
+            const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+            if (gameState.lastLogin === yesterday.toDateString()) { gameState.streak++; gameState.gems++; document.getElementById('daily-modal').style.display = 'flex'; } 
+            else if (gameState.lastLogin === null) { gameState.streak = 1; gameState.lastLogin = today; } 
+            else { gameState.streak = 1; gameState.gems++; document.getElementById('daily-modal').style.display = 'flex'; }
+            gameState.lastLogin = today; saveData();
+        }
+    }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+    function saveScoreAndCheckHigh() {
+        const current = gameState.score; if (current === 0) return false;
+        let scores = gameState.highScores; scores.push(current); scores.sort((a, b) => b - a); scores = scores.slice(0, 5); gameState.highScores = scores; saveData();
+        return scores.includes(current) && scores.indexOf(current) === 0;
+    }
+
+    function showLeaderboard() {
+        const list = document.getElementById('leaderboard-list'); list.innerHTML = '';
+        if (gameState.highScores.length === 0) { list.innerHTML = '<li>No scores yet. Play a game!</li>'; } 
+        else { gameState.highScores.forEach((score, index) => { let medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '🏅'; list.innerHTML += `<li><span>${medal} Rank ${index + 1}</span> <span>${score} pts</span></li>`; }); }
+        document.getElementById('leaderboard-modal').style.display = 'flex';
+    }
+
+    function togglePause() { if (!gameState.gameActive) return; gameState.isPaused = !gameState.isPaused; document.getElementById('pause-modal').style.display = gameState.isPaused ? 'flex' : 'none'; }
+    function quitGameFromPause() { document.getElementById('pause-modal').style.display = 'none'; quitGame(); }
+    function openAIHelp() { if (!gameState.gameActive || gameState.isPaused) return; gameState.isPaused = true; document.getElementById('ai-explanation-text').innerHTML = gameState.currentQuestion.explanation; document.getElementById('ai-modal').style.display = 'flex'; }
+    function closeAIHelp() { document.getElementById('ai-modal').style.display = 'none'; gameState.isPaused = false; }
+
+    function startGame() {
+        initAudio(); gameState.score = 0; gameState.correctCount = 0;
+        gameState.currentTopic = document.getElementById('topic-select').value; gameState.currentDifficulty = document.getElementById('difficulty-select').value;
+        gameState.gameActive = true; gameState.isPaused = false; document.getElementById('high-score-msg').style.display = 'none';
+        switchScreen('game-screen'); nextQuestion();
+    }
+
+    function nextQuestion() {
+        if(!gameState.gameActive) return;
+        clearInterval(gameState.intervalId); gameState.timer = 30; gameState.maxTime = 30; gameState.isPaused = false; startTimer();
+        document.querySelectorAll('.option-btn').forEach(b => b.classList.remove('hidden', 'correct', 'wrong'));
+        document.getElementById('btn-5050').disabled = false;
+
+        const q = generateQuestion(gameState.currentTopic, gameState.currentDifficulty); gameState.currentQuestion = q;
+        document.getElementById('question-text').innerHTML = q.text;
+        const container = document.getElementById('options-container'); container.innerHTML = '';
+        q.options.forEach(opt => { const btn = document.createElement('button'); btn.className = 'option-btn'; btn.innerText = opt; btn.onclick = () => checkAnswer(opt, btn); container.appendChild(btn); });
+    }
+
+    function startTimer() {
+        const fill = document.getElementById('timer-fill'); const text = document.getElementById('timer-text');
+        fill.style.width = "100%"; fill.classList.remove('low'); text.innerText = gameState.timer + "s";
+        gameState.intervalId = setInterval(() => {
+            if (gameState.isPaused) return; 
+            gameState.timer--; text.innerText = gameState.timer + "s"; fill.style.width = ((gameState.timer / gameState.maxTime) * 100) + "%";
+            if (gameState.timer <= 5) fill.classList.add('low');
+            if (gameState.timer <= 0) { clearInterval(gameState.intervalId); handleTimeUp(); }
+        }, 1000);
+    }
+
+    function handleTimeUp() {
+        playWrong(); const correct = gameState.currentQuestion.answer;
+        document.querySelectorAll('.option-btn').forEach(b => { if(b.innerText == correct) b.classList.add('correct'); else b.classList.add('wrong'); });
+        document.getElementById('question-text').innerText = "Time's Up!"; setTimeout(() => { quitGame(); }, 2000); 
+    }
+
+    function checkAnswer(selected, btnElement) {
+        if (!gameState.gameActive || gameState.isPaused) return; 
+        clearInterval(gameState.intervalId); const correct = gameState.currentQuestion.answer;
+        document.querySelectorAll('.option-btn').forEach(b => b.onclick = null);
+        if (selected == correct) { playCorrect(); btnElement.classList.add('correct'); gameState.score += 10; gameState.correctCount++; setTimeout(nextQuestion, 1000); } 
+        else { playWrong(); btnElement.classList.add('wrong'); document.querySelectorAll('.option-btn').forEach(b => { if(b.innerText == correct) b.classList.add('correct'); }); setTimeout(() => { quitGame(); }, 2000); }
+    }
+
+    function generateQuestion(topic, level) {
+        let qText = "", ans = 0, exp = "";
+        const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+        const getOptions = (correct) => { let opts = new Set([correct]); while(opts.size < 4) { let offset = rand(-10, 10); if (offset !== 0) opts.add(correct + offset); } return Array.from(opts).sort(() => Math.random() - 0.5); };
+
+        if (topic === 'addition') { let a = rand(10, 50), b = rand(10, 50); qText = `${a} + ${b}`; ans = a + b; exp = `<b>Step 1:</b> Look at the numbers ${a} and ${b}.<br><b>Step 2:</b> Add the tens, then add the units. <br><b>Answer:</b> The total sum is <b>${ans}</b>.`; } 
+        else if (topic === 'subtraction') { let a = rand(50, 99), b = rand(10, 49); qText = `${a} - ${b}`; ans = a - b; exp = `<b>Step 1:</b> Start with ${a}.<br><b>Step 2:</b> Subtract the tens of ${b}, then subtract the units.<br><b>Answer:</b> The difference is <b>${ans}</b>.`; }
+        else if (topic === 'multiplication') { let a = rand(11, 19), b = rand(11, 19); qText = `${a} × ${b}`; ans = a * b; exp = `<b>Tip:</b> Try breaking it down! Multiply ${a} by 10, then multiply ${a} by ${b - 10}, and add them together.<br><b>Answer:</b> <b>${ans}</b>.`; }
+        else if (topic === 'base_mult') { let base, offA, offB; if (level === 'basic') { base = 10; offA = rand(-3, 3); offB = rand(-3, 3); } else { base = 100; offA = rand(-9, 9); offB = rand(-9, 9); } if(offA === 0) offA = 2; if(offB === 0) offB = 3; let a = base + offA, b = base + offB; qText = `${a} × ${b}`; ans = a * b; exp = `<b>Vedic Base Method:</b><br>1. Working base is ${base}.<br>2. Deviations are ${offA > 0 ? '+'+offA : offA} and ${offB > 0 ? '+'+offB : offB}.<br>3. Cross add/subtract to get the first part.<br>4. Multiply deviations for the second part.<br><b>Answer:</b> <b>${ans}</b>`; }
+        else if (topic === 'square') { let n = rand(1, 9)*10 + 5; qText = `${n}²`; ans = n * n; let firstDigit = Math.floor(n/10); exp = `<b>Vedic Trick (Ends in 5):</b><br>1. Take the first digit (${firstDigit}) and multiply by the next number up (${firstDigit + 1}). This gives ${firstDigit * (firstDigit+1)}.<br>2. Put 25 at the end.<br><b>Answer:</b> <b>${ans}</b>.`; }
+        else if (topic === 'pythagoras') { let m = rand(2, 5), n = rand(1, m-1); let a = m*m - n*n, b = 2*m*n, c = m*m + n*n; qText = `Hypotenuse of: ${a}, ${b}`; ans = c; exp = `<b>Formula:</b> a² + b² = c².<br>(${a} × ${a}) + (${b} × ${b}) = c².<br>${a*a} + ${b*b} = ${c*c}.<br>The square root of ${c*c} is <b>${ans}</b>.`; }
+        else if (topic === 'algebra') {
+            let x = rand(-10, 10); if (x === 0) x = 2; 
+            if (level === 'basic') { let A = rand(2, 9), B = A * x; qText = `Solve for x:<br>${A}x = ${B}`; exp = `To get 'x' by itself, divide both sides by ${A}.<br>${B} ÷ ${A} = ${x}.<br><b>Answer: x = ${x}</b>.`; } 
+            else { let A = rand(2, 9), B = rand(1, 20), C = (A * x) + B; qText = `Find x:<br>${A}x + ${B} = ${C}`; exp = `1. Move the number with no 'x' to the other side by subtracting ${B} from ${C}. (${C} - ${B} = ${C-B}).<br>2. Now you have ${A}x = ${C-B}. Divide by ${A}.<br><b>Answer: x = ${x}</b>.`; } ans = x;
+        }
+        else if (topic === 'fractions') {
+            let n1, d1, n2, d2, num, den; d1 = d2 = rand(3, 9); n1 = rand(1, d1-1); n2 = rand(1, d1-1); num = n1 + n2; den = d1; qText = `${n1}/${d1} + ${n2}/${d1}`;
+            let div = gcd(num, den); num /= div; den /= div; ans = (den === 1) ? `${num}` : `${num}/${den}`;
+            exp = `1. The denominators (bottom numbers) are the same: ${d1}.<br>2. Add the numerators (top numbers): ${n1} + ${n2} = ${n1+n2}.<br>3. Simplify ${n1+n2}/${d1} if possible.<br><b>Answer: ${ans}</b>.`;
+            let optSet = new Set([ans]); while(optSet.size < 4) { let fakeNum = num + rand(-3, 3), fakeDen = den + rand(1, 3); if (fakeNum <= 0) fakeNum = 1; optSet.add((fakeDen === 1) ? `${fakeNum}` : `${fakeNum}/${fakeDen}`); }
+            return { text: qText + " = ?", answer: ans, options: Array.from(optSet).sort(() => Math.random() - 0.5), explanation: exp };
+        }
+        else { let a = rand(5, 20), b = rand(2, 10); qText = `${a} × ${b}`; ans = a * b; exp = `Multiply ${a} and ${b}. Answer is ${ans}.`; }
+        return { text: qText + " = ?", answer: ans, options: getOptions(ans), explanation: exp };
+    }
+
+    function useLifeline(type) {
+        if (type === '5050') { if (gameState.gems < 2) { alert("Need 2 Gems!"); return; } gameState.gems -= 2; const correct = gameState.currentQuestion.answer; const buttons = Array.from(document.querySelectorAll('.option-btn')); const wrongButtons = buttons.filter(b => b.innerText != correct).sort(() => Math.random() - 0.5); wrongButtons[0].classList.add('hidden'); wrongButtons[1].classList.add('hidden'); document.getElementById('btn-5050').disabled = true; } 
+        else if (type === 'time') { if (gameState.gems < 1) { alert("Need 1 Gem!"); return; } gameState.gems -= 1; gameState.timer += 30; gameState.maxTime += 30; document.getElementById('timer-fill').classList.remove('low'); }
+        saveData();
+    }
+
+    function shareScore() { const shareText = `I just scored ${gameState.score} points with ${gameState.correctCount} correct answers in Master Quick Vedic Math! Can you beat my score? 🧠🔥`; if (navigator.share) { navigator.share({ title: 'Master Quick Math', text: shareText }).catch(console.error); } else { window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank'); } }
+    function quitGame() { gameState.gameActive = false; clearInterval(gameState.intervalId); let isNewHigh = saveScoreAndCheckHigh(); if(isNewHigh) document.getElementById('high-score-msg').style.display = 'block'; switchScreen('result-screen'); document.getElementById('final-score').innerText = gameState.score; document.getElementById('correct-count').innerText = gameState.correctCount; }
+    function goHome() { switchScreen('home-screen'); }
+    function switchScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+</script>
+
+</body>
+</html>
